@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: crunchyroll-anime-info
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: CR_LOCALE
+        value: en-US
+      - key: CACHE_TTL_SECONDS
+        value: "2700"
