@@ -116,7 +116,7 @@ Open `http://localhost:8000`.
 You can also run it exactly like Render/Gunicorn:
 
 ```bash
-PORT=8000 gunicorn app:app
+PORT=8000 python -m gunicorn app:app
 ```
 
 ## Deploy from GitHub to Render.com
@@ -142,10 +142,10 @@ git push -u origin main
 2. Click **New +**.
 3. Choose **Blueprint** if you want Render to read `render.yaml`, then select your GitHub repo.
 4. Or choose **Web Service**, select the repo, and use:
-   - Build command: `pip install -r requirements.txt`
-   - Start command: `gunicorn app:app`
+   - Build command: `python -m pip install --upgrade pip && python -m pip install -r requirements.txt`
+   - Start command: `python -m gunicorn app:app`
 5. Select the free plan if desired.
-6. Render will set `PORT` automatically. `gunicorn.conf.py` makes `gunicorn app:app` bind to `0.0.0.0:$PORT`.
+6. Render will set `PORT` automatically. `gunicorn.conf.py` makes `python -m gunicorn app:app` bind to `0.0.0.0:$PORT`.
 7. Click **Deploy**.
 
 ### Step 3: Optional environment settings
@@ -174,3 +174,20 @@ A Discord, Telegram, or other bot can call these HTTP APIs directly. The report-
 ## Important Crunchyroll note
 
 Crunchyroll has no official public API. This project uses undocumented anonymous endpoints that are community-known and can change or be blocked. When Crunchyroll returns errors or bot protection, the service returns a clear JSON error instead of fake data.
+
+
+## Render troubleshooting: `gunicorn: command not found`
+
+If Render logs show `bash: line 1: gunicorn: command not found`, the Python package installed correctly but Render did not put the console script on `PATH`. Use this Start Command instead:
+
+```bash
+python -m gunicorn app:app
+```
+
+Use this Build Command to make sure `pip` belongs to the same Python runtime:
+
+```bash
+python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+```
+
+Then click **Manual Deploy → Clear build cache & deploy**.
