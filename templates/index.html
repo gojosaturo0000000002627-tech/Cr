@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Live Anime Info from Crunchyroll</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #10131a;
+      --panel: #181d27;
+      --panel-2: #222938;
+      --accent: #ff7a1a;
+      --accent-2: #ffd1ae;
+      --text: #f6f7fb;
+      --muted: #aeb7c9;
+      --bad: #ff6b6b;
+      --good: #77dd99;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, #2e1c12 0, transparent 28rem), var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    main { width: min(980px, 100%); margin: 0 auto; padding: 24px 14px 48px; }
+    header { margin: 16px 0 22px; }
+    h1 { font-size: clamp(2rem, 8vw, 4rem); line-height: 0.95; margin: 0 0 12px; letter-spacing: -0.06em; }
+    p { color: var(--muted); line-height: 1.6; }
+    .badge { display: inline-flex; gap: 8px; align-items: center; padding: 8px 12px; border: 1px solid #384154; border-radius: 999px; color: var(--accent-2); background: rgba(255,122,26,0.08); font-weight: 700; }
+    .panel { background: rgba(24,29,39,0.92); border: 1px solid #31394c; border-radius: 24px; padding: 18px; box-shadow: 0 18px 50px rgba(0,0,0,0.28); }
+    form { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    @media (min-width: 720px) { form { grid-template-columns: 1fr auto auto; align-items: end; } }
+    label { display: grid; gap: 7px; color: var(--muted); font-size: 0.9rem; font-weight: 700; }
+    input, select, button { width: 100%; border: 1px solid #3a4357; border-radius: 14px; padding: 13px 14px; font: inherit; }
+    input, select { background: #0f131b; color: var(--text); }
+    button { background: linear-gradient(135deg, #ff8a1c, #ff5d00); color: #1b0c00; font-weight: 900; cursor: pointer; border: 0; }
+    button.secondary { background: var(--panel-2); color: var(--text); border: 1px solid #3a4357; }
+    .quick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+    @media (min-width: 720px) { .quick { grid-template-columns: repeat(4, 1fr); } }
+    #status { min-height: 28px; color: var(--muted); margin: 16px 2px; }
+    .error { color: var(--bad); font-weight: 800; }
+    .card { background: var(--panel); border: 1px solid #30384a; border-radius: 20px; padding: 16px; margin: 14px 0; }
+    .card h2, .card h3 { margin: 0 0 8px; letter-spacing: -0.03em; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+    .pill { padding: 7px 10px; background: var(--panel-2); border: 1px solid #3a4357; border-radius: 999px; color: var(--accent-2); font-size: 0.9rem; font-weight: 700; }
+    .grid { display: grid; gap: 12px; }
+    @media (min-width: 720px) { .grid.two { grid-template-columns: repeat(2, 1fr); } }
+    a { color: var(--accent-2); }
+    pre { white-space: pre-wrap; word-break: break-word; background: #0b0e14; padding: 14px; border-radius: 14px; border: 1px solid #293143; color: #d7e1f5; overflow-x: auto; }
+    .small { font-size: 0.88rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="badge">● LIVE Crunchyroll data</div>
+      <h1>Anime info web service</h1>
+      <p>Search anime series and movies using Crunchyroll's anonymous API. Results are cached for at most 45 minutes and include per-language episode schedules in IST.</p>
+    </header>
+
+    <section class="panel">
+      <form id="searchForm">
+        <label>
+          Anime or movie name
+          <input id="query" name="query" placeholder="Example: One Piece" autocomplete="off" required>
+        </label>
+        <label>
+          Report type
+          <select id="mode" name="mode">
+            <option value="anime">Anime series report</option>
+            <option value="movie">Movie report</option>
+            <option value="search">Search only</option>
+          </select>
+        </label>
+        <button type="submit">Fetch live info</button>
+      </form>
+      <div class="quick">
+        <button class="secondary" data-api="/new">Newly added</button>
+        <button class="secondary" data-api="/calendar">Calendar</button>
+        <button class="secondary" data-api="/health">Health</button>
+        <button class="secondary" id="clear" type="button">Clear</button>
+      </div>
+    </section>
+
+    <div id="status"></div>
+    <section id="results"></section>
+  </main>
+
+  <script>
+    const form = document.getElementById('searchForm');
+    const query = document.getElementById('query');
+    const mode = document.getElementById('mode');
+    const results = document.getElementById('results');
+    const statusBox = document.getElementById('status');
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
+    }
+
+    async function getJson(path) {
+      statusBox.textContent = 'Fetching live data from Crunchyroll...';
+      statusBox.className = '';
+      const response = await fetch(path, { headers: { 'Accept': 'application/json' }});
+      const data = await response.json().catch(() => ({ error: 'Server returned a non-JSON response.' }));
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      statusBox.textContent = `Done. Checked at ${data.checked_at_utc || new Date().toISOString()}`;
+      return data;
+    }
+
+    function renderAnime(data) {
+      const langs = (data.languages || []).map(lang => {
+        const latest = typeof lang.latest_released_episode === 'string'
+          ? lang.latest_released_episode
+          : `Episode ${escapeHtml(lang.latest_released_episode.number)} — ${escapeHtml(lang.latest_released_episode.date_ist)}`;
+        const next = typeof lang.next_episode === 'string'
+          ? lang.next_episode
+          : `Episode ${escapeHtml(lang.next_episode.number)} — ${escapeHtml(lang.next_episode.date_ist)}`;
+        return `<div class="card"><h3>${escapeHtml(lang.language)}</h3><p class="small">${escapeHtml(lang.locale)}</p><div class="meta"><span class="pill">${lang.total_episodes} episodes</span></div><p><strong>Latest:</strong> ${latest}</p><p><strong>Next:</strong> ${next}</p></div>`;
+      }).join('');
+      results.innerHTML = `<article class="card"><h2>${escapeHtml(data.name)}</h2><div class="meta"><span class="pill">${escapeHtml(data.status)}</span><span class="pill">${data.total_seasons} seasons</span><span class="pill">${data.total_episodes} total episodes</span></div><p>${escapeHtml(data.description || 'No description returned.')}</p><p><a href="${escapeHtml(data.crunchyroll_url)}" target="_blank" rel="noopener">Open on Crunchyroll</a></p><h3>Dub languages</h3><div class="grid two">${langs}</div></article><details class="card"><summary>Raw JSON</summary><pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre></details>`;
+    }
+
+    function renderMovie(data) {
+      const dubs = (data.available_dub_languages || []).map(item => `<span class="pill">${escapeHtml(item.language)}</span>`).join('') || '<span class="pill">No dub data returned</span>';
+      results.innerHTML = `<article class="card"><h2>${escapeHtml(data.title)}</h2><div class="meta"><span class="pill">${escapeHtml(data.release_year || 'Year unknown')}</span><span class="pill">${escapeHtml(data.runtime_minutes || 'Runtime unknown')} min</span>${dubs}</div><p>${escapeHtml(data.description || 'No description returned.')}</p><p><a href="${escapeHtml(data.crunchyroll_url)}" target="_blank" rel="noopener">Open on Crunchyroll</a></p></article><details class="card"><summary>Raw JSON</summary><pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre></details>`;
+    }
+
+    function renderGeneric(data) {
+      const list = data.results || data.episodes;
+      if (Array.isArray(list)) {
+        const cards = list.map(item => `<div class="card"><h3>${escapeHtml(item.title || item.series_title || item.episode_title || item.id)}</h3><p>${escapeHtml(item.description || item.free_publish_date_ist || '')}</p>${item.url ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener">Open</a>` : ''}</div>`).join('');
+        results.innerHTML = `<div class="grid two">${cards}</div><details class="card"><summary>Raw JSON</summary><pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre></details>`;
+      } else {
+        results.innerHTML = `<pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre>`;
+      }
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      results.innerHTML = '';
+      try {
+        const value = encodeURIComponent(query.value.trim());
+        const chosen = mode.value;
+        const path = chosen === 'search' ? `/search?q=${value}` : `/${chosen}/${value}`;
+        const data = await getJson(path);
+        if (chosen === 'anime') renderAnime(data);
+        else if (chosen === 'movie') renderMovie(data);
+        else renderGeneric(data);
+      } catch (error) {
+        statusBox.textContent = error.message;
+        statusBox.className = 'error';
+      }
+    });
+
+    document.querySelectorAll('[data-api]').forEach(button => {
+      button.addEventListener('click', async () => {
+        results.innerHTML = '';
+        try { renderGeneric(await getJson(button.dataset.api)); }
+        catch (error) { statusBox.textContent = error.message; statusBox.className = 'error'; }
+      });
+    });
+
+    document.getElementById('clear').addEventListener('click', () => {
+      results.innerHTML = '';
+      statusBox.textContent = '';
+      query.value = '';
+      query.focus();
+    });
+  </script>
+</body>
+</html>
