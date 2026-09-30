@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Render installs requirements into .venv during build. Use that exact Gunicorn.
 export PORT="${PORT:-8000}"
 
-if [ -x ".venv/bin/gunicorn" ]; then
-  exec .venv/bin/gunicorn app:app --bind "0.0.0.0:${PORT}" --workers "${WEB_CONCURRENCY:-1}" --threads "${GUNICORN_THREADS:-4}" --timeout "${GUNICORN_TIMEOUT:-120}"
+# Use project-local dependencies created by build.sh. If Render ever starts
+# without the build artifact, install them once at startup as a fallback.
+if [ ! -d "vendor/gunicorn" ] || [ ! -d "vendor/flask" ]; then
+  echo "vendor dependencies missing; installing into ./vendor now..." >&2
+  rm -rf vendor
+  python3 -m pip install --target vendor -r requirements.txt
 fi
 
-if [ -x "/opt/render/project/src/.venv/bin/gunicorn" ]; then
-  exec /opt/render/project/src/.venv/bin/gunicorn app:app --bind "0.0.0.0:${PORT}" --workers "${WEB_CONCURRENCY:-1}" --threads "${GUNICORN_THREADS:-4}" --timeout "${GUNICORN_TIMEOUT:-120}"
-fi
-
-echo "Gunicorn was not found in Render virtualenv. Installing requirements now..." >&2
-python3 -m pip install -r requirements.txt
-exec python3 -m gunicorn app:app --bind "0.0.0.0:${PORT}" --workers "${WEB_CONCURRENCY:-1}" --threads "${GUNICORN_THREADS:-4}" --timeout "${GUNICORN_TIMEOUT:-120}"
+export PYTHONPATH="$(pwd)/vendor:${PYTHONPATH:-}"
+exec python3 -m gunicorn app:app \
+  --bind "0.0.0.0:${PORT}" \
+  --workers "${WEB_CONCURRENCY:-1}" \
+  --threads "${GUNICORN_THREADS:-4}" \
+  --timeout "${GUNICORN_TIMEOUT:-120}"

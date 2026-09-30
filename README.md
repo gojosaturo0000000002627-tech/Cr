@@ -1,20 +1,26 @@
 # Crunchyroll Anime Info Web Service
 
-## FINAL Render commands that work
+## FINAL Render commands
 
 Use these exact commands in Render Settings:
 
 ```bash
-Build Command: pip install -r requirements.txt
-Start Command: .venv/bin/gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
+Build Command: bash build.sh
+Start Command: bash start.sh
 ```
 
-Why this is needed: Render installs packages into `.venv`, so the start command must call `.venv/bin/gunicorn` directly. Do not use `gunicorn app:app`, `python -m gunicorn`, or `python3 -m gunicorn` on Render for this service.
+This project now installs dependencies into a local `vendor/` folder during build and starts Gunicorn with `PYTHONPATH=vendor`. That avoids Render's native Python virtualenv/PATH problems such as:
+
+```text
+gunicorn: command not found
+python: command not found
+/usr/bin/python3: No module named gunicorn
+.venv/bin/gunicorn: No such file or directory
+```
 
 After changing commands, click **Manual Deploy → Clear build cache & deploy**.
 
 
-A production-ready Python + Flask web service that fetches **live anime information from Crunchyroll's anonymous API**. It does not use hardcoded anime data and never invents fallback results. If Crunchyroll blocks or fails, the API returns a clear JSON error.
 
 ## What it includes
 
@@ -29,32 +35,6 @@ A production-ready Python + Flask web service that fetches **live anime informat
 - Mock tests for Crunchyroll token/search/series/seasons/episodes/movie/new/calendar flows
 
 
-## Render start-command fix
-
-If Render logs show either of these errors:
-
-```text
-gunicorn: command not found
-python: command not found
-/usr/bin/python3: No module named gunicorn
-```
-
-it means Render installed dependencies inside its virtualenv at `/opt/render/project/src/.venv`, but your Start Command is using the system Python instead of that virtualenv.
-
-Use these exact commands in Render **Settings**:
-
-```bash
-Build Command: pip install -r requirements.txt
-Start Command: .venv/bin/gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
-```
-
-Or use this direct Start Command:
-
-```bash
-/opt/render/project/src/.venv/bin/python -m gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 60
-```
-
-After changing the commands, click **Manual Deploy → Clear build cache & deploy**.
 
 ## Files
 
@@ -184,8 +164,8 @@ git push -u origin main
 2. Click **New +**.
 3. Choose **Blueprint** if you want Render to read `render.yaml`, then select your GitHub repo.
 4. Or choose **Web Service**, select the repo, and use:
-   - Build command: `pip install -r requirements.txt`
-   - Start command: `.venv/bin/gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120`
+   - Build command: `bash build.sh`
+   - Start command: `bash start.sh`
 5. Select the free plan if desired.
 6. Render will set `PORT` automatically. `gunicorn.conf.py` makes Gunicorn bind to `0.0.0.0:$PORT`.
 7. Click **Deploy**.
@@ -218,32 +198,3 @@ A Discord, Telegram, or other bot can call these HTTP APIs directly. The report-
 Crunchyroll has no official public API. This project uses undocumented anonymous endpoints that are community-known and can change or be blocked. When Crunchyroll returns errors or bot protection, the service returns a clear JSON error instead of fake data.
 
 
-## Render troubleshooting: `gunicorn: command not found`
-
-If Render logs show `bash: line 1: gunicorn: command not found`, the Python package installed correctly but Render did not put the console script on `PATH`. Use this Start Command instead:
-
-```bash
-python -m gunicorn app:app
-```
-
-Use this Build Command to make sure `pip` belongs to the same Python runtime:
-
-```bash
-python -m pip install --upgrade pip && python -m pip install -r requirements.txt
-```
-
-Then click **Manual Deploy → Clear build cache & deploy**.
-
-
-## Render troubleshooting: `python: command not found`
-
-Some Render images expose Python as `python3`, not `python`, and sometimes the Gunicorn console script is installed but not added to `PATH`. This repo includes `build.sh` and `start.sh` to handle those cases.
-
-Use these commands in Render:
-
-```bash
-Build Command: pip install -r requirements.txt
-Start Command: .venv/bin/gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
-```
-
-Then click **Manual Deploy → Clear build cache & deploy**.

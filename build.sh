@@ -1,15 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Render sometimes exposes Python as python3 instead of python.  This script
-# installs dependencies with whichever Python executable is available.
-if command -v python3 >/dev/null 2>&1; then
-  python3 -m pip install --upgrade pip
-  python3 -m pip install -r requirements.txt
-elif command -v python >/dev/null 2>&1; then
-  python -m pip install --upgrade pip
-  python -m pip install -r requirements.txt
-else
-  # Last fallback for Render images where pip is available but python is not on PATH.
-  pip install -r requirements.txt
-fi
+# Render's native Python runtime sometimes installs packages into a virtualenv
+# that is not available/activated when the service starts.  To avoid every PATH
+# and venv issue, install dependencies into a project-local ./vendor directory.
+# ./vendor is inside the deployed app, and start.sh loads it with PYTHONPATH.
+rm -rf vendor
+python3 -m pip install --upgrade pip
+python3 -m pip install --target vendor -r requirements.txt
