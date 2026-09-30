@@ -12,3 +12,7 @@ services:
         value: en-US
       - key: CACHE_TTL_SECONDS
         value: "2700"
+      - key: TELEGRAM_WEBHOOK_SECRET
+        generateValue: true
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
