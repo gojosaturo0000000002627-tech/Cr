@@ -1,5 +1,19 @@
 # Crunchyroll Anime Info Web Service
 
+## FINAL Render commands that work
+
+Use these exact commands in Render Settings:
+
+```bash
+Build Command: pip install -r requirements.txt
+Start Command: .venv/bin/gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
+```
+
+Why this is needed: Render installs packages into `.venv`, so the start command must call `.venv/bin/gunicorn` directly. Do not use `gunicorn app:app`, `python -m gunicorn`, or `python3 -m gunicorn` on Render for this service.
+
+After changing commands, click **Manual Deploy → Clear build cache & deploy**.
+
+
 A production-ready Python + Flask web service that fetches **live anime information from Crunchyroll's anonymous API**. It does not use hardcoded anime data and never invents fallback results. If Crunchyroll blocks or fails, the API returns a clear JSON error.
 
 ## What it includes
@@ -30,8 +44,8 @@ it means Render installed dependencies inside its virtualenv at `/opt/render/pro
 Use these exact commands in Render **Settings**:
 
 ```bash
-Build Command: bash build.sh
-Start Command: bash start.sh
+Build Command: pip install -r requirements.txt
+Start Command: .venv/bin/gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
 ```
 
 Or use this direct Start Command:
@@ -170,8 +184,8 @@ git push -u origin main
 2. Click **New +**.
 3. Choose **Blueprint** if you want Render to read `render.yaml`, then select your GitHub repo.
 4. Or choose **Web Service**, select the repo, and use:
-   - Build command: `bash build.sh`
-   - Start command: `bash start.sh`
+   - Build command: `pip install -r requirements.txt`
+   - Start command: `.venv/bin/gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120`
 5. Select the free plan if desired.
 6. Render will set `PORT` automatically. `gunicorn.conf.py` makes Gunicorn bind to `0.0.0.0:$PORT`.
 7. Click **Deploy**.
@@ -228,8 +242,8 @@ Some Render images expose Python as `python3`, not `python`, and sometimes the G
 Use these commands in Render:
 
 ```bash
-Build Command: bash build.sh
-Start Command: bash start.sh
+Build Command: pip install -r requirements.txt
+Start Command: .venv/bin/gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120
 ```
 
 Then click **Manual Deploy → Clear build cache & deploy**.
