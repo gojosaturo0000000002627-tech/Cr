@@ -14,6 +14,34 @@ A production-ready Python + Flask web service that fetches **live anime informat
 - Search, newly added, calendar, health check, and a simple mobile-friendly web UI
 - Mock tests for Crunchyroll token/search/series/seasons/episodes/movie/new/calendar flows
 
+
+## Render start-command fix
+
+If Render logs show either of these errors:
+
+```text
+gunicorn: command not found
+python: command not found
+/usr/bin/python3: No module named gunicorn
+```
+
+it means Render installed dependencies inside its virtualenv at `/opt/render/project/src/.venv`, but your Start Command is using the system Python instead of that virtualenv.
+
+Use these exact commands in Render **Settings**:
+
+```bash
+Build Command: bash build.sh
+Start Command: bash start.sh
+```
+
+Or use this direct Start Command:
+
+```bash
+/opt/render/project/src/.venv/bin/python -m gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 60
+```
+
+After changing the commands, click **Manual Deploy → Clear build cache & deploy**.
+
 ## Files
 
 ```text
@@ -116,7 +144,7 @@ Open `http://localhost:8000`.
 You can also run it exactly like Render/Gunicorn:
 
 ```bash
-PORT=8000 python -m gunicorn app:app
+PORT=8000 bash start.sh
 ```
 
 ## Deploy from GitHub to Render.com
@@ -142,10 +170,10 @@ git push -u origin main
 2. Click **New +**.
 3. Choose **Blueprint** if you want Render to read `render.yaml`, then select your GitHub repo.
 4. Or choose **Web Service**, select the repo, and use:
-   - Build command: `python -m pip install --upgrade pip && python -m pip install -r requirements.txt`
-   - Start command: `python -m gunicorn app:app`
+   - Build command: `bash build.sh`
+   - Start command: `bash start.sh`
 5. Select the free plan if desired.
-6. Render will set `PORT` automatically. `gunicorn.conf.py` makes `python -m gunicorn app:app` bind to `0.0.0.0:$PORT`.
+6. Render will set `PORT` automatically. `gunicorn.conf.py` makes Gunicorn bind to `0.0.0.0:$PORT`.
 7. Click **Deploy**.
 
 ### Step 3: Optional environment settings
@@ -188,6 +216,20 @@ Use this Build Command to make sure `pip` belongs to the same Python runtime:
 
 ```bash
 python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+```
+
+Then click **Manual Deploy → Clear build cache & deploy**.
+
+
+## Render troubleshooting: `python: command not found`
+
+Some Render images expose Python as `python3`, not `python`, and sometimes the Gunicorn console script is installed but not added to `PATH`. This repo includes `build.sh` and `start.sh` to handle those cases.
+
+Use these commands in Render:
+
+```bash
+Build Command: bash build.sh
+Start Command: bash start.sh
 ```
 
 Then click **Manual Deploy → Clear build cache & deploy**.
